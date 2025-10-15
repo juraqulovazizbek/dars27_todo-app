@@ -4,7 +4,6 @@ from datetime import datetime, date
 
 DATABASE_URL = "database.json"
 
-# Fayl mavjud bo‘lmasa — yaratiladi
 if not os.path.exists(DATABASE_URL):
     with open(DATABASE_URL, "w") as f:
         json.dump([], f, indent=4)
@@ -25,7 +24,6 @@ def save_database(tasks: list[dict]):
     for task in tasks:
         new_task = task.copy()
 
-        # datetime obyekt bo‘lsa, stringga o‘tkazamiz
         if isinstance(new_task.get("due_date"), datetime):
             new_task["due_date"] = new_task["due_date"].strftime("%d/%m/%Y")
 
