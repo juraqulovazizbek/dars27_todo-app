@@ -4,53 +4,68 @@ from datetime import datetime, date
 
 DATABASE_URL = "database.json"
 
+# Fayl mavjud bo‘lmasa — yaratiladi
 if not os.path.exists(DATABASE_URL):
     with open(DATABASE_URL, "w") as f:
-        f.write("[]")
+        json.dump([], f, indent=4)
 
 
 def read_database() -> list[dict]:
-    with open(DATABASE_URL) as f:
-        tasks = json.load(f)
-
-    return tasks
+    """Barcha tasklarni fayldan o‘qish"""
+    with open(DATABASE_URL, "r") as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            return []
 
 
 def save_database(tasks: list[dict]):
+    """Tasklarni faylga saqlash (datetime obyektlarini stringga aylantiradi)"""
+    serializable_tasks = []
+    for task in tasks:
+        new_task = task.copy()
+
+        # datetime obyekt bo‘lsa, stringga o‘tkazamiz
+        if isinstance(new_task.get("due_date"), datetime):
+            new_task["due_date"] = new_task["due_date"].strftime("%d/%m/%Y")
+
+        if isinstance(new_task.get("created_date"), datetime):
+            new_task["created_date"] = new_task["created_date"].strftime("%d/%m/%Y, %H:%M:%S")
+
+        serializable_tasks.append(new_task)
+
     with open(DATABASE_URL, "w") as f:
-        json.dump(tasks, f, indent=4)
+        json.dump(serializable_tasks, f, indent=4)
 
 
-def create_task(name: str, description: str, category: str, date: date) -> bool:
+def create_task(name: str, description: str, category: str, due_date: date) -> bool:
+    """Yangi task yaratish"""
     tasks = read_database()
+    last_id = max((task["id"] for task in tasks), default=0)
 
-    last_task = max(tasks, key=lambda task: task['id'], default={"id": 0})
-    tasks.append({
-        "id": last_task["id"] + 1,
+    new_task = {
+        "id": last_id + 1,
         "name": name,
         "description": description,
         "category": category,
-        "due_date": date.strftime("%d/%m/%Y"),
+        "due_date": due_date.strftime("%d/%m/%Y"),
         "created_date": datetime.now().strftime("%d/%m/%Y, %H:%M:%S"),
         "status": False,
-    })
+    }
 
+    tasks.append(new_task)
     save_database(tasks)
+    return True
 
 
-def get_tasks():
-    tasks = list(map(
-        lambda task: {
-            "id": task["id"],
-            "name": task["name"],
-            "description": task["description"],
-            "category": task["category"],
-            "due_date": datetime.strptime(task["due_date"], "%d/%m/%Y"),
-            "created_date": datetime.strptime(task["created_date"], "%d/%m/%Y, %H:%M:%S"),
-            "status": task["status"]
-        },
-        read_database(),
-    ))
-
+def get_tasks() -> list[dict]:
+    """Tasklarni datetime obyektlari bilan olish"""
+    tasks = []
+    for task in read_database():
+        try:
+            task["due_date"] = datetime.strptime(task["due_date"], "%d/%m/%Y")
+            task["created_date"] = datetime.strptime(task["created_date"], "%d/%m/%Y, %H:%M:%S")
+        except Exception:
+            continue
+        tasks.append(task)
     return tasks
-
